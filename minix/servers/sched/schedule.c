@@ -38,7 +38,7 @@ static int schedule_process(struct schedproc * rmp, unsigned flags);
 
 #define cpu_is_available(c)	(cpu_proc[c] >= 0)
 
-#define DEFAULT_USER_TIME_SLICE 999999999
+#define DEFAULT_USER_TIME_SLICE 1000000000
 
 /* processes created by RS are sysytem processes */
 #define is_system_proc(p)	((p)->parent == RS_PROC_NR)
@@ -97,7 +97,7 @@ int do_noquantum(message *m_ptr)
 
 
 	rmp->priority = 0; 
-	rmp->time_slice = 999999999;
+	rmp->time_slice = DEFAULT_USER_TIME_SLICE;
 
 
 	if ((rv = schedule_process_local(rmp)) != OK) {
@@ -193,7 +193,7 @@ int do_start_scheduling(message *m_ptr)
 		 * quanum and priority are set explicitly rather than inherited 
 		 * from the parent */
 		rmp->priority   = 0;
-		rmp->time_slice = m_ptr->m_lsys_sched_scheduling_start.quantum;
+		rmp->time_slice = DEFAULT_USER_TIME_SLICE;
 		break;
 		
 	case SCHEDULING_INHERIT:
@@ -205,7 +205,7 @@ int do_start_scheduling(message *m_ptr)
 			return rv;
 
 		rmp->priority = 0;
-		rmp->time_slice = schedproc[parent_nr_n].time_slice;
+		rmp->time_slice = DEFAULT_USER_TIME_SLICE;
 		break;
 		
 	default: 

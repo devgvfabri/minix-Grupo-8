@@ -418,7 +418,7 @@ check_misc_flags:
 	 * as we are sure that a possible out-of-quantum message to the
 	 * scheduler will not collide with the regular ipc
 	 */
-	if (!p->p_cpu_time_left)
+	if (p->p_quantum_size_ms != 0 && !p->p_cpu_time_left)
 		proc_no_time(p);
 	/*
 	 * After handling the misc flags the selected process might not be
@@ -1824,14 +1824,23 @@ void dequeue(struct proc *rp)
 static struct proc * pick_proc(void)
 {
     struct proc **rdy_head;
+    struct proc **rdy_tail;
     struct proc *rp;
 
     rdy_head = get_cpulocal_var(run_q_head);
+    rdy_tail = get_cpulocal_var(run_q_tail);
 
     if (rdy_head[0] == NULL)
         return NULL;
 
     rp = rdy_head[0];
+
+    rdy_head[0] = rp->p_nextready;
+
+    if(rdy_head[0] == NULL)
+        rdy_tail[0] = NULL;
+
+    rp->p_nextready = NULL;
 
     assert(proc_is_runnable(rp));
 
@@ -1840,7 +1849,6 @@ static struct proc * pick_proc(void)
 
     return rp;
 }
-
 /*===========================================================================*
  *				endpoint_lookup				     *
  *===========================================================================*/
