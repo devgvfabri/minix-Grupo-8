@@ -1630,7 +1630,7 @@ void enqueue(
 #endif
 
   /* Make note of when this process was added to queue */
-  read_tsc_64(&(get_cpulocal_var(proc_ptr)->p_accounting.enter_queue));
+  read_tsc_64(&rp->p_accounting.enter_queue);
 
 
 #if DEBUG_SANITYCHECKS
@@ -1665,7 +1665,7 @@ static void enqueue_head(struct proc *rp)
 	rdy_head[q] = rp;			
   }
 
-  read_tsc_64(&(get_cpulocal_var(proc_ptr->p_accounting.enter_queue)));
+  read_tsc_64(&rp->p_accounting.enter_queue);
 
 
   rp->p_accounting.preempted++;
