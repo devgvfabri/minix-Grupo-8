@@ -38,7 +38,7 @@ static int schedule_process(struct schedproc * rmp, unsigned flags);
 
 #define cpu_is_available(c)	(cpu_proc[c] >= 0)
 
-#define DEFAULT_USER_TIME_SLICE 200
+#define RR_QUANTUM 50
 
 /* processes created by RS are sysytem processes */
 #define is_system_proc(p)	((p)->parent == RS_PROC_NR)
@@ -97,6 +97,7 @@ int do_noquantum(message *m_ptr)
 
 	rmp = &schedproc[proc_nr_n];
 	rmp->priority = 0;
+	rmp->time_slice = RR_QUANTUM;
 
 	if ((rv = schedule_process_local(rmp)) != OK) {
 		return rv;
@@ -170,7 +171,7 @@ int do_start_scheduling(message *m_ptr)
 		/* We have a special case here for init, which is the first
 		   process scheduled, and the parent of itself. */
 		rmp->priority   = 0;
-		rmp->time_slice = DEFAULT_USER_TIME_SLICE;
+		rmp->time_slice = RR_QUANTUM;
 
 		/*
 		 * Since kernel never changes the cpu of a process, all are
@@ -188,10 +189,10 @@ int do_start_scheduling(message *m_ptr)
 
 	case SCHEDULING_START:
 		/* We have a special case here for system processes, for which
-		 * quanum and priority are set explicitly rather than inherited 
+		 * quantum and priority are set explicitly rather than inherited 
 		 * from the parent */
 		rmp->priority   = 0;
-		rmp->time_slice = m_ptr->m_lsys_sched_scheduling_start.quantum;
+		rmp->time_slice = RR_QUANTUM;
 		break;
 		
 	case SCHEDULING_INHERIT:
@@ -202,8 +203,8 @@ int do_start_scheduling(message *m_ptr)
 				&parent_nr_n)) != OK)
 			return rv;
 
-		rmp->priority = 0;
-		rmp->time_slice = schedproc[parent_nr_n].time_slice;
+		rmp->priority   = 0;
+		rmp->time_slice = RR_QUANTUM;
 		break;
 		
 	default: 
@@ -254,7 +255,7 @@ int do_nice(message *m_ptr)
 	struct schedproc *rmp;
 	int rv;
 	int proc_nr_n;
-	unsigned new_q, old_q, old_max_q;
+	unsigned new_q, old_max_q;
 
 	/* check who can send you requests */
 	if (!accept_message(m_ptr))
@@ -273,11 +274,11 @@ int do_nice(message *m_ptr)
 	}
 
 	/* Store old values, in case we need to roll back the changes */
-	old_q     = 0;
 	old_max_q = 0;
 
 	/* Update the proc entry and reschedule the process */
 	rmp->max_priority = rmp->priority = 0;
+	rmp->time_slice   = RR_QUANTUM;
 
 	if ((rv = schedule_process_local(rmp)) != OK) {
 		/* Something went wrong when rescheduling the process, roll
@@ -304,8 +305,10 @@ static int schedule_process(struct schedproc * rmp, unsigned flags)
 	else
 		new_prio = -1;
 
-	if (flags & SCHEDULE_CHANGE_QUANTUM)
-		new_quantum = rmp->time_slice;
+	if (flags & SCHEDULE_CHANGE_QUANTUM) {
+		rmp->time_slice = RR_QUANTUM;
+		new_quantum = RR_QUANTUM;
+	}		
 	else
 		new_quantum = -1;
 
@@ -350,6 +353,4 @@ void init_scheduling(void)
  */
 void balance_queues(void)
 {
-	struct schedproc *rmp;
-	int r, proc_nr;
 }
