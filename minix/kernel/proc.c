@@ -1619,46 +1619,45 @@ void enqueue(
     struct proc *iter;
     struct proc *prev;
 
-	u64_t rp_effective;
-	u64_t iter_effective;
 	u64_t now;
-	u64_t wait_time;
 
 	read_tsc_64(&now);
 
     iter = rdy_head[0];
     prev = NULL;
 
-	if(rp->last_enqueue == 0 || now < rp->last_enqueue)
-    	wait_time = 0;
-	else
-    	wait_time = (now - rp->last_enqueue) / 1000000;
+	u64_t rp_wait = 0;
 
-    if(wait_time / 10 >= rp->estimated_run_time)
-    	rp_effective = 1;
-	else
-    	rp_effective = rp->estimated_run_time - wait_time/10;
+	if(rp->last_enqueue != 0 && now > rp->last_enqueue)
+	{
+    	rp_wait = now - rp->last_enqueue;
+	}
 
-    if(rp_effective < 1)
-        rp_effective = 1;
+	u64_t rp_aging = rp_wait / 100000000ULL;
 
-    iter = rdy_head[0];
-    prev = NULL;
+	if(rp_aging > rp->estimated_run_time / 2)
+	{
+		rp_aging = rp->estimated_run_time / 2;
+	}
+
+	u64_t rp_effective = rp->estimated_run_time - rp_aging;
 
     while(iter != NULL) {
+		u64_t iter_wait = 0;
 
-		if(iter->last_enqueue == 0 || now < iter->last_enqueue)
-    		wait_time = 0;
-		else
-    		wait_time = (now - iter->last_enqueue) / 1000000;
+		if(iter->last_enqueue != 0 && now > iter->last_enqueue)
+		{
+    		iter_wait = now - iter->last_enqueue;
+		}
+		
+		u64_t iter_aging = iter_wait / 100000000ULL;
 
-		if(wait_time / 10 >= iter->estimated_run_time)
-    		iter_effective = 1;
-		else
-    		iter_effective = iter->estimated_run_time - wait_time / 10;
+		if(iter_aging > iter->estimated_run_time / 2)
+		{
+			iter_aging = iter->estimated_run_time / 2;
+		}
 
-        if(iter_effective < 1)
-            iter_effective = 1;
+		u64_t iter_effective = iter->estimated_run_time - iter_aging;
 
         if(iter_effective > rp_effective)
             break;
@@ -1817,6 +1816,7 @@ void dequeue(struct proc *rp)
   assert(runqueues_ok_local());
 #endif
 }
+static int debug_count = 0;
 
 /*===========================================================================*
  *				pick_proc				     * 
@@ -1834,6 +1834,7 @@ static struct proc * pick_proc(void)
         return NULL;
 
     rp = rdy_head[0];
+
 
     rdy_head[0] = rp->p_nextready;
 
