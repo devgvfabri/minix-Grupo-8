@@ -1618,7 +1618,6 @@ void enqueue(
 	  if((p->p_priority > rp->p_priority) && (priv(p)->s_flags & PREEMPTIBLE))
 		  RTS_SET(p, RTS_PREEMPTED);
 	}
-  }
 #ifdef CONFIG_SMP
   else if (get_cpu_var(rp->p_cpu, cpu_is_idle)) {
 	  smp_schedule(rp->p_cpu);
