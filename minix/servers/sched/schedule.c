@@ -13,6 +13,9 @@
 #include <minix/com.h>
 #include <machine/archtypes.h>
 
+#define MAX_PRIORITY 20 /* Limite de prioridade */
+#define DEFAULT_PRIORITY 10 /* Valor inicial de prioridade */
+
 static unsigned balance_timeout;
 
 #define BALANCE_TIMEOUT	5 /* how often to balance queues in seconds */
@@ -96,13 +99,6 @@ int do_noquantum(message *m_ptr)
 	}
 
 	rmp = &schedproc[proc_nr_n];
-	if (rmp->priority < MIN_USER_Q) {
-		rmp->priority += 1; /* lower priority */
-	}
-
-	if ((rv = schedule_process_local(rmp)) != OK) {
-		return rv;
-	}
 	return OK;
 }
 
@@ -171,7 +167,7 @@ int do_start_scheduling(message *m_ptr)
 	if (rmp->endpoint == rmp->parent) {
 		/* We have a special case here for init, which is the first
 		   process scheduled, and the parent of itself. */
-		rmp->priority   = USER_Q;
+		rmp->priority   = DEFAULT_PRIORITY; 
 		rmp->time_slice = DEFAULT_USER_TIME_SLICE;
 
 		/*
@@ -270,7 +266,7 @@ int do_nice(message *m_ptr)
 
 	rmp = &schedproc[proc_nr_n];
 	new_q = m_ptr->m_pm_sched_scheduling_set_nice.maxprio;
-	if (new_q >= NR_SCHED_QUEUES) {
+	if (new_q < 0 || new_q > MAX_PRIORITY) {
 		return EINVAL;
 	}
 
@@ -316,7 +312,7 @@ static int schedule_process(struct schedproc * rmp, unsigned flags)
 	else
 		new_cpu = -1;
 
-	niced = (rmp->max_priority > USER_Q);
+	niced = (rmp->max_priority > MAX_PRIORITY);
 
 	if ((err = sys_schedule(rmp->endpoint, new_prio,
 		new_quantum, new_cpu, niced)) != OK) {
