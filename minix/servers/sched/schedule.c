@@ -266,7 +266,7 @@ int do_nice(message *m_ptr)
 
 	rmp = &schedproc[proc_nr_n];
 	new_q = m_ptr->m_pm_sched_scheduling_set_nice.maxprio;
-	if (new_q < 0 || new_q > MAX_PRIORITY) {
+	if (new_q > MAX_PRIORITY) {
 		return EINVAL;
 	}
 
