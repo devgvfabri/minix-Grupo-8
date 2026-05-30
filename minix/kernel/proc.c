@@ -1659,47 +1659,23 @@ rp->p_accounting.preempted++;
 void dequeue(struct proc *rp)
 /* this process is no longer runnable */
 {
-/* A process must be removed from the scheduling queues, for example, because
- * it has blocked.  If the currently active process is removed, a new process
- * is picked to run by calling pick_proc().
- *
- * This function can operate x-cpu as it always removes the process from the
- * queue of the cpu the process is currently assigned to.
- */
-  int q = rp->p_priority;		/* queue to use */
-  struct proc **xpp;			/* iterate over queue */
+  struct proc **iter;
   struct proc *prev_xp;
   u64_t tsc, tsc_delta;
-
-  struct proc **rdy_tail;
 
   assert(proc_ptr_ok(rp));
   assert(!proc_is_runnable(rp));
 
-  /* Side-effect for kernel: check if the task's stack still is ok? */
   assert (!iskernelp(rp) || *priv(rp)->s_stack_guard == STACK_GUARD);
 
-  rdy_tail = get_cpu_var(rp->p_cpu, run_q_tail);
-
-  /* Now make sure that the process is not in its ready queue. Remove the 
-   * process if it is found. A process can be made unready even if it is not 
-   * running by being sent a signal that kills it.
-   */
-  prev_xp = NULL;				
-  for (xpp = get_cpu_var_ptr(rp->p_cpu, run_q_head[q]); *xpp;
-		  xpp = &(*xpp)->p_nextready) {
-      if (*xpp == rp) {				/* found process to remove */
-          *xpp = (*xpp)->p_nextready;		/* replace with next chain */
-          if (rp == rdy_tail[q]) {		/* queue tail removed */
-              rdy_tail[q] = prev_xp;		/* set new tail */
+  for (iter = &run_queue_head; *iter; iter = &(*iter)->p_nextready) {
+	  if (*iter == rp) {		/* encontrou processo para remover */
+		  *iter = rp->p_nextready;		/* substitui com o próximo */
+		  rp->p_nextready = NULL;			/* remove da queue */
+		  break;
 	  }
-
-          break;
-      }
-      prev_xp = *xpp;				/* save previous in chain */
   }
 
-	
   /* Process accounting for scheduling */
   rp->p_accounting.dequeues++;
 
