@@ -1598,63 +1598,33 @@ void enqueue(
   register struct proc *rp	/* this process is now runnable */
 )
 {
-/* Add 'rp' to one of the queues of runnable processes.  This function is 
- * responsible for inserting a process into one of the scheduling queues. 
- * The mechanism is implemented here.   The actual scheduling policy is
- * defined in sched() and pick_proc().
- *
- * This function can be used x-cpu as it always uses the queues of the cpu the
- * process is assigned to.
- */
-  int q = rp->p_priority;	 		/* scheduling queue to use */
-  struct proc **rdy_head, **rdy_tail;
-  
-  assert(proc_is_runnable(rp));
+  struct proc **prev, **iter;
+  assert(proc_is_runnable(rp));	 /* Apenas executáveis entram na fila */
+  rp->p_nextready = NULL;	/* marca o fim da lista encadeada */
+  prev = &run_queue_head;
 
-  assert(q >= 0);
-
-  rdy_head = get_cpu_var(rp->p_cpu, run_q_head);
-  rdy_tail = get_cpu_var(rp->p_cpu, run_q_tail);
-
-  /* Now add the process to the queue. */
-  if (!rdy_head[q]) {		/* add to empty queue */
-      rdy_head[q] = rdy_tail[q] = rp; 		/* create a new queue */
-      rp->p_nextready = NULL;		/* mark new end */
-  } 
-  else {					/* add to tail of queue */
-      rdy_tail[q]->p_nextready = rp;		/* chain tail of queue */	
-      rdy_tail[q] = rp;				/* set new queue tail */
-      rp->p_nextready = NULL;		/* mark new end */
+  while(*prev != NULL && (*prev)->p_priority <= rp->p_priority) {
+	 /* Percorre a fila até encontrar a posição correta */
+	prev = &(*prev)->p_nextready;
   }
-
-  if (cpuid == rp->p_cpu) {
-	  /*
-	   * enqueueing a process with a higher priority than the current one,
-	   * it gets preempted. The current process must be preemptible. Testing
-	   * the priority also makes sure that a process does not preempt itself
-	   */
-	  struct proc * p;
+  rp->p_nextready = *prev; 
+  *prev = rp;  /* Insere o processo na posição correta */
+  /* Se o processo possui prioridade maior que o atualmente sendo executado, 
+  * solicita preempção. */
+  if (cpuid == rp->p_cpu) { 
+  	  struct proc * p;
 	  p = get_cpulocal_var(proc_ptr);
 	  assert(p);
-	  if((p->p_priority > rp->p_priority) &&
-			  (priv(p)->s_flags & PREEMPTIBLE))
-		  RTS_SET(p, RTS_PREEMPTED); /* calls dequeue() */
+	  if((p->p_priority > rp->p_priority) && (priv(p)->s_flags & PREEMPTIBLE))
+		  RTS_SET(p, RTS_PREEMPTED);
+	}
   }
 #ifdef CONFIG_SMP
-  /*
-   * if the process was enqueued on a different cpu and the cpu is idle, i.e.
-   * the time is off, we need to wake up that cpu and let it schedule this new
-   * process
-   */
   else if (get_cpu_var(rp->p_cpu, cpu_is_idle)) {
 	  smp_schedule(rp->p_cpu);
   }
 #endif
-
-  /* Make note of when this process was added to queue */
   read_tsc_64(&(get_cpulocal_var(proc_ptr)->p_accounting.enter_queue));
-
-
 #if DEBUG_SANITYCHECKS
   assert(runqueues_ok_local());
 #endif
@@ -1663,49 +1633,20 @@ void enqueue(
 /*===========================================================================*
  *				enqueue_head				     *
  *===========================================================================*/
-/*
- * put a process at the front of its run queue. It comes handy when a process is
- * preempted and removed from run queue to not to have a currently not-runnable
- * process on a run queue. We have to put this process back at the fron to be
- * fair
- */
 static void enqueue_head(struct proc *rp)
 {
-  const int q = rp->p_priority;	 		/* scheduling queue to use */
+  assert(proc_ptr_ok(rp)); /* processo válido */
+  assert(proc_is_runnable(rp)); /* apenas executáveis são enfileirados */
+  assert(rp->p_cpu_time_left); /* ainda há tempo de CPU restante */
 
-  struct proc **rdy_head, **rdy_tail;
+/* insere no início da fila de prontos*/
+rp->p_nextready = run_queue_head;
+run_queue_head = rp;
 
-  assert(proc_ptr_ok(rp));
-  assert(proc_is_runnable(rp));
+read_tsc_64(&(rp->p_accounting.enter_queue));
 
-  /*
-   * the process was runnable without its quantum expired when dequeued. A
-   * process with no time left should have been handled else and differently
-   */
-  assert(rp->p_cpu_time_left);
-
-  assert(q >= 0);
-
-
-  rdy_head = get_cpu_var(rp->p_cpu, run_q_head);
-  rdy_tail = get_cpu_var(rp->p_cpu, run_q_tail);
-
-  /* Now add the process to the queue. */
-  if (!rdy_head[q]) {		/* add to empty queue */
-	rdy_head[q] = rdy_tail[q] = rp; 	/* create a new queue */
-	rp->p_nextready = NULL;			/* mark new end */
-  } else {					/* add to head of queue */
-	rp->p_nextready = rdy_head[q];		/* chain head of queue */
-	rdy_head[q] = rp;			/* set new queue head */
-  }
-
-  /* Make note of when this process was added to queue */
-  read_tsc_64(&(get_cpulocal_var(proc_ptr->p_accounting.enter_queue)));
-
-
-  /* Process accounting for scheduling */
-  rp->p_accounting.dequeues--;
-  rp->p_accounting.preempted++;
+rp->p_accounting.dequeues--;
+rp->p_accounting.preempted++;
 
 #if DEBUG_SANITYCHECKS
   assert(runqueues_ok_local());
