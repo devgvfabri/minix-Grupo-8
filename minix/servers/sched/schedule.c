@@ -38,7 +38,7 @@ static int schedule_process(struct schedproc * rmp, unsigned flags);
 
 #define cpu_is_available(c)	(cpu_proc[c] >= 0)
 
-#define RR_QUANTUM 50
+#define RR_QUANTUM 100
 
 /* processes created by RS are sysytem processes */
 #define is_system_proc(p)	((p)->parent == RS_PROC_NR)
