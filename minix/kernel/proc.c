@@ -1623,7 +1623,7 @@ void enqueue(
 	  smp_schedule(rp->p_cpu);
   }
 #endif
-  read_tsc_64(&(get_cpulocal_var(proc_ptr)->p_accounting.enter_queue));
+  read_tsc_64(&(rp->p_accounting.enter_queue));
 #if DEBUG_SANITYCHECKS
   assert(runqueues_ok_local());
 #endif
