@@ -99,6 +99,10 @@ int do_noquantum(message *m_ptr)
 	}
 
 	rmp = &schedproc[proc_nr_n];
+
+	if ((rv = schedule_process_local(rmp)) != OK)
+		return rv;
+
 	return OK;
 }
 
